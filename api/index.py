@@ -144,18 +144,16 @@ def index():
 
 @app.route('/api/dados/<int:mes>/<int:ano>')
 def api_dados_mes(mes, ano):
+    """API para obter dados diários de um mês específico (com 1 mês anterior para comparação)"""
     dados = get_lme_data()
-    dados_processados = processar_dados_mensal(dados, mes, ano, meses_anteriores=1)
-    
+    dados_processados = processar_dados_mensal(dados, mes, ano, meses_anteriores=1)  # 2 meses
+    # PTAX para o período
     if dados_processados:
-        try:
-            di = datetime.strptime(dados_processados[0]["data"], "%Y-%m-%d")
-            df = datetime.strptime(dados_processados[-1]["data"], "%Y-%m-%d")
-            ptax = get_ptax_periodo(di, df)
-            for item in dados_processados:
-                item["dolar_ptax"] = float(ptax.get(item["data"], 0))
-        except Exception:
-            pass
+        di = datetime.strptime(dados_processados[0]["data"], "%Y-%m-%d")
+        df = datetime.strptime(dados_processados[-1]["data"], "%Y-%m-%d")
+        ptax = get_ptax_periodo(di, df)
+        for item in dados_processados:
+            item["dolar_ptax"] = float(ptax.get(item["data"], 0))
     
     indicadores_variacao = montar_indicadores_variacao(dados, dados_processados, mes, ano)
     
@@ -163,6 +161,64 @@ def api_dados_mes(mes, ano):
         "dados_diarios": dados_processados,
         "indicadores_variacao": indicadores_variacao
     })
+
+# Rotas de Simulação
+@app.route('/api/simulacao/padroes')
+def api_simulacao_padroes():
+    """Retorna parâmetros padrão para a simulação de preço."""
+    try:
+        # Obter cotações atuais (simulando a função obter_cotacoes_atualizadas)
+        dados = get_lme_data()
+        if not dados or len(dados) == 0:
+            return jsonify({"erro": "Não foi possível obter cotações atuais"}), 500
+            
+        # Usar o último dado disponível
+        ultimo_dado = dados[0]
+        cotacao_lme = float(ultimo_dado.get('aluminio', 0))  # Assumindo que 'aluminio' é a cotação LME
+        cotacao_dolar = float(ultimo_dado.get('dolar', 5.0))  # Usando dolar do último registro
+        data_ref = ultimo_dado.get('data', datetime.now().strftime('%Y-%m-%d'))
+        
+        fator_referencia = 1.30
+        preco_base_usd_kg = cotacao_lme / 1000
+        preco_base_brl_kg = preco_base_usd_kg * cotacao_dolar * fator_referencia
+
+        custos_detalhados = {
+            "mao_obra": preco_base_brl_kg * 0.10,
+            "energia": preco_base_brl_kg * 0.05,
+            "manutencao": preco_base_brl_kg * 0.03,
+            "administracao": preco_base_brl_kg * 0.05,
+        }
+        custos_totais = sum(custos_detalhados.values())
+
+        resposta = {
+            "cotacao_lme": round(cotacao_lme, 2),
+            "cotacao_dolar": round(cotacao_dolar, 4),
+            "fator_referencia": fator_referencia,
+            "preco_base_referencia": round(preco_base_brl_kg, 2),
+            "custos_referencia": round(custos_totais, 2),
+            "custos_detalhados": {k: round(v, 2) for k, v in custos_detalhados.items()},
+            "data_referencia": data_ref,
+            "margem_padrao": 25.0,
+            "margem_minima": 20.0,
+            "quantidade_padrao": 1.0,
+            "sensibilidade_padrao": 5.0
+        }
+        
+        return jsonify(resposta)
+        
+    except Exception as e:
+        return jsonify({"erro": f"Erro ao gerar parâmetros padrão: {str(e)}"}), 500
+
+@app.route('/api/simulacao/salvar', methods=['POST'])
+def api_simulacao_salvar():
+    """Endpoint para salvar simulações (implementação básica)."""
+    try:
+        dados = request.get_json()
+        # Simulando o salvamento (em produção, salvaria em um banco de dados)
+        print("Simulação recebida:", dados)
+        return jsonify({"status": "success", "mensagem": "Simulação salva com sucesso"})
+    except Exception as e:
+        return jsonify({"status": "error", "mensagem": str(e)}), 400
 
 @app.route('/api/dados-semanais/<int:mes>/<int:ano>')
 def api_dados_semanais(mes, ano):
