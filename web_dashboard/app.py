@@ -32,8 +32,28 @@ def obter_cotacoes_atualizadas():
     if not dados:
         return None, None, None
 
-    dados_ordenados = sorted(dados, key=lambda x: x.get("data"), reverse=True)
+    # Garantir que as datas sejam comparáveis
+    data_atual = datetime.now()
+    for d in dados:
+        try:
+            data_item = datetime.strptime(d.get("data", ""), "%Y-%m-%d")
+            # Se a data for futura, usar a data atual
+            if data_item > data_atual:
+                d['_data_ordenacao'] = data_atual
+            else:
+                d['_data_ordenacao'] = data_item
+        except (ValueError, TypeError):
+            d['_data_ordenacao'] = datetime.min  # Data antiga para itens inválidos
+
+    # Ordenar por data (mais recente primeiro)
+    dados_ordenados = sorted(dados, key=lambda x: x.get('_data_ordenacao'), reverse=True)
+    
+    # Pegar o item mais recente
     ultimo = dados_ordenados[0]
+
+    # Limpar campo temporário
+    for d in dados:
+        d.pop('_data_ordenacao', None)
 
     try:
         cotacao_lme = float(ultimo.get("aluminio", 0))
@@ -45,7 +65,15 @@ def obter_cotacoes_atualizadas():
     except (TypeError, ValueError):
         cotacao_dolar = None
 
+    # Garantir que a data de referência não seja futura
     data_referencia = ultimo.get("data")
+    try:
+        data_item = datetime.strptime(data_referencia, "%Y-%m-%d")
+        if data_item > data_atual:
+            data_referencia = data_atual.strftime("%Y-%m-%d")
+    except (ValueError, TypeError):
+        data_referencia = data_atual.strftime("%Y-%m-%d")
+
     return cotacao_lme, cotacao_dolar, data_referencia
 
 
