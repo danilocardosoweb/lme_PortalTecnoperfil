@@ -108,8 +108,9 @@ $RECYCLE.BIN/
 *.lnk
 *.rdp
 *.exe
-*.json
-*.txt
+simulacoes.json
+!vercel.json
+logs/*.txt
 *.xls
 *.ini
 *.url
