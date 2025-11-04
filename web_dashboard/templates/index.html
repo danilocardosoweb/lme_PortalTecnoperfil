@@ -398,6 +398,168 @@
             box-shadow: 0 10px 22px rgba(37, 99, 235, 0.28);
         }
 
+        .tributos-box {
+            margin-top: 14px;
+            background: rgba(255, 255, 255, 0.92);
+            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.2);
+            padding: 14px 16px;
+            box-shadow: 0 12px 24px rgba(15, 23, 42, 0.12);
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .tributos-header {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .tributos-header h4 {
+            font-size: 0.95rem;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .tributos-descricao {
+            font-size: 0.74rem;
+            color: #475569;
+        }
+
+        .tributos-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+        }
+
+        .tributos-grid label {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            font-size: 0.78rem;
+            color: #1f2937;
+        }
+
+        .tributos-grid input,
+        .tributos-grid select {
+            border-radius: 10px;
+            border: 1px solid rgba(148, 163, 184, 0.45);
+            padding: 8px 10px;
+            font-size: 0.82rem;
+            background: rgba(248, 250, 252, 0.92);
+        }
+
+        .tributos-grid small {
+            font-size: 0.7rem;
+            color: #64748b;
+        }
+
+        .tributos-resumo-card {
+            margin-top: 16px;
+            padding: 16px;
+            background: linear-gradient(135deg, rgba(37, 99, 235, 0.07), rgba(37, 99, 235, 0.03));
+            border-radius: 12px;
+            border: 1px solid rgba(148, 163, 184, 0.22);
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .tributos-resumo-topo {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .tributos-resumo-topo h4 {
+            font-size: 0.9rem;
+            color: #0f172a;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .tributos-percentual {
+            font-weight: 700;
+            color: #2563eb;
+            font-size: 1rem;
+        }
+
+        .tributos-resumo-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 8px;
+        }
+
+        .tributos-item {
+            background: rgba(248, 250, 252, 0.85);
+            border-radius: 10px;
+            padding: 10px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            font-size: 0.78rem;
+            color: #334155;
+        }
+
+        .tributos-item strong {
+            font-size: 0.82rem;
+            color: #0f172a;
+        }
+
+        .tributos-item.destaque strong {
+            color: #b91c1c;
+        }
+
+        .tributos-resumo-total {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 10px;
+            background: rgba(15, 23, 42, 0.04);
+            border-radius: 10px;
+            padding: 10px 12px;
+        }
+
+        .tributos-resumo-total span {
+            font-size: 0.78rem;
+            color: #475569;
+        }
+
+        .tributos-resumo-total strong {
+            font-size: 0.95rem;
+            color: #0f172a;
+        }
+
+        .tributos-resumo-final {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+            gap: 10px;
+        }
+
+        .tributos-resumo-final div {
+            background: rgba(37, 99, 235, 0.08);
+            border-radius: 10px;
+            padding: 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .tributos-resumo-final span {
+            font-size: 0.78rem;
+            color: #1e3a8a;
+        }
+
+        .tributos-resumo-final strong {
+            font-size: 1rem;
+            color: #1d4ed8;
+        }
+
         .preset-bar button.btn-remover-preset {
             background: rgba(226, 232, 240, 0.85);
             color: #1f2937;
@@ -1698,6 +1860,52 @@
                         </label>
                     </div>
 
+                    <div class="tributos-box">
+                        <div class="tributos-header">
+                            <h4>Tributação <button type="button" class="help-icon" data-help="tributos" title="Configure as alíquotas para aplicar a carga tributária no preço final." aria-label="Ajuda sobre tributação">?</button></h4>
+                            <span class="tributos-descricao">Informe as alíquotas e encargos adicionais para refletir o preço final com impostos.</span>
+                        </div>
+                        <div class="tributos-grid">
+                            <label>
+                                Regime Tributário
+                                <select id="selectRegimeTributario">
+                                    <option value="lucro_real">Lucro Real</option>
+                                    <option value="lucro_presumido">Lucro Presumido</option>
+                                    <option value="simples_nacional">Simples Nacional</option>
+                                </select>
+                            </label>
+                            <label>
+                                ICMS (%)
+                                <input type="number" step="0.01" min="0" max="100" id="inputICMS" value="18">
+                            </label>
+                            <label>
+                                IPI (%)
+                                <input type="number" step="0.01" min="0" max="100" id="inputIPI" value="0">
+                            </label>
+                            <label>
+                                PIS (%)
+                                <input type="number" step="0.0001" min="0" max="100" id="inputPIS" value="0.65">
+                            </label>
+                            <label>
+                                COFINS (%)
+                                <input type="number" step="0.0001" min="0" max="100" id="inputCOFINS" value="3">
+                            </label>
+                            <label>
+                                ISS (%)
+                                <input type="number" step="0.01" min="0" max="100" id="inputISS" value="0">
+                                <small>Aplica-se quando houver incidência sobre serviços.</small>
+                            </label>
+                            <label>
+                                Créditos Tributários (R$/kg)
+                                <input type="number" step="0.0001" min="0" id="inputCreditos" value="0">
+                            </label>
+                            <label>
+                                Encargos Extras (R$/kg)
+                                <input type="number" step="0.0001" min="0" id="inputOutrosImpostos" value="0">
+                            </label>
+                        </div>
+                    </div>
+
                     <div class="simulacao-actions">
                         <button class="btn btn-secundario" type="button" id="btnAtualizarDados">🔄 Atualizar Dados</button>
                         <button class="btn btn-outline" type="button" id="btnResetar">🧹 Resetar Valores</button>
@@ -1749,16 +1957,28 @@
                             <strong id="resultadoCustoTotal">R$ 0,00</strong>
                         </div>
                         <div class="result-card">
-                            <span class="result-label">📦 Preço de Venda (R$/kg)</span>
+                            <span class="result-label">📦 Preço de Venda s/ impostos (R$/kg)</span>
                             <strong id="resultadoVendaKg">R$ 0,00</strong>
                         </div>
                         <div class="result-card">
-                            <span class="result-label">🧱 Preço de Venda (R$/ton)</span>
+                            <span class="result-label">🧱 Preço de Venda s/ impostos (R$/ton)</span>
                             <strong id="resultadoVendaTon">R$ 0,00</strong>
                         </div>
                         <div class="result-card destaque">
                             <span class="result-label">📊 Margem Bruta (%)</span>
                             <strong id="resultadoMargem">0,00 %</strong>
+                        </div>
+                        <div class="result-card">
+                            <span class="result-label">🧾 Carga Tributária (%)</span>
+                            <strong id="resultadoCargaTributariaCard">0,00 %</strong>
+                        </div>
+                        <div class="result-card">
+                            <span class="result-label">🏷 Preço Final c/ impostos (R$/kg)</span>
+                            <strong id="resultadoPrecoFinalKgCard">R$ 0,00</strong>
+                        </div>
+                        <div class="result-card">
+                            <span class="result-label">🏗 Preço Final c/ impostos (R$/ton)</span>
+                            <strong id="resultadoPrecoFinalTonCard">R$ 0,00</strong>
                         </div>
                         <div class="result-card">
                             <span class="result-label">📦 Quantidade (ton)</span>
@@ -1776,6 +1996,67 @@
                         <div class="result-card resumo full">
                             <span class="result-label">📝 Resumo Executivo</span>
                             <strong id="resultadoResumo">Calcule para ver o resumo.</strong>
+                        </div>
+                    </div>
+
+                    <div class="tributos-resumo-card" id="painelTributos">
+                        <div class="tributos-resumo-topo">
+                            <h4>Carga Tributária</h4>
+                            <span id="resultadoCargaTributaria" class="tributos-percentual">0,00 %</span>
+                        </div>
+                        <div class="tributos-resumo-grid">
+                            <div class="tributos-item">
+                                <span>ICMS (<span id="labelAliquotaICMS">18,00</span>%)</span>
+                                <strong id="resultadoTributoICMS">R$ 0,00</strong>
+                            </div>
+                            <div class="tributos-item">
+                                <span>IPI (<span id="labelAliquotaIPI">0,00</span>%)</span>
+                                <strong id="resultadoTributoIPI">R$ 0,00</strong>
+                            </div>
+                            <div class="tributos-item">
+                                <span>PIS (<span id="labelAliquotaPIS">0,65</span>%)</span>
+                                <strong id="resultadoTributoPIS">R$ 0,00</strong>
+                            </div>
+                            <div class="tributos-item">
+                                <span>COFINS (<span id="labelAliquotaCOFINS">3,00</span>%)</span>
+                                <strong id="resultadoTributoCOFINS">R$ 0,00</strong>
+                            </div>
+                            <div class="tributos-item">
+                                <span>ISS (<span id="labelAliquotaISS">0,00</span>%)</span>
+                                <strong id="resultadoTributoISS">R$ 0,00</strong>
+                            </div>
+                            <div class="tributos-item">
+                                <span>Encargos Extras</span>
+                                <strong id="resultadoTributoExtras">R$ 0,00</strong>
+                            </div>
+                            <div class="tributos-item destaque">
+                                <span>(-) Créditos Tributários</span>
+                                <strong id="resultadoTributoCreditos">R$ 0,00</strong>
+                            </div>
+                        </div>
+                        <div class="tributos-resumo-total">
+                            <div>
+                                <span>Total de Impostos (R$/kg)</span>
+                                <strong id="resultadoTotalTributos">R$ 0,00</strong>
+                            </div>
+                            <div>
+                                <span>Total de Impostos (R$/ton)</span>
+                                <strong id="resultadoTotalTributosTon">R$ 0,00</strong>
+                            </div>
+                        </div>
+                        <div class="tributos-resumo-final">
+                            <div>
+                                <span>Preço Final com Impostos (R$/kg)</span>
+                                <strong id="resultadoPrecoFinalKg">R$ 0,00</strong>
+                            </div>
+                            <div>
+                                <span>Preço Final com Impostos (R$/ton)</span>
+                                <strong id="resultadoPrecoFinalTon">R$ 0,00</strong>
+                            </div>
+                            <div>
+                                <span>Receita Total com Impostos</span>
+                                <strong id="resultadoReceitaTotalTributos">R$ 0,00</strong>
+                            </div>
                         </div>
                     </div>
 

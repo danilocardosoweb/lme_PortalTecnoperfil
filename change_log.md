@@ -13,3 +13,4 @@ Inclua entradas sempre que ajustes de código, documentação ou infraestrutura 
 [03/11/2025 13:19] - web_dashboard - Botão de ajuda com modal didático da simulação - Cascade
 [03/11/2025 13:38] - web_dashboard - Ícones de ajuda contextuais nas seções da simulação - Cascade
 [03/11/2025 13:47] - web_dashboard - Popovers interativos de ajuda por seção na simulação - Cascade
+[04/11/2025 14:45] - web_dashboard - Integração de cálculo de tributos na simulação (inputs dedicados, gráficos, presets, histórico e exportação) - Cascade

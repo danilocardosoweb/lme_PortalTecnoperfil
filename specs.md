@@ -54,3 +54,27 @@ Documento destinado a detalhar requisitos funcionais, regras de negócio, fluxos
   2. Fechamento funciona por botão “Entendi”, ícone “✕” e clique na área externa.
   3. Conteúdo permanece legível em telas pequenas (rolagem habilitada).
 - **Impactos:** atualização apenas no front-end (HTML, CSS e JavaScript). Nenhuma dependência extra e sem alterações em banco de dados.
+
+## Cálculo de Tributos na Simulação de Preço
+
+- **Objetivo:** incorporar impostos indiretos (ICMS, IPI, PIS, COFINS, ISS) e encargos adicionais na simulação do preço do alumínio, exibindo o preço final com impostos sem perder nenhuma funcionalidade existente.
+- **Requisitos funcionais:**
+  1. Coletar regime tributário, alíquotas e valores adicionais através de novos campos na aba de simulação.
+  2. Recalcular automaticamente a carga tributária, preço final com impostos e receita bruta sempre que qualquer entrada (inclusive tributos) for alterada.
+  3. Exibir um painel detalhado com valores por tributo, totais em R$/kg e R$/ton e indicadores de carga percentual.
+  4. Integrar os tributos aos gráficos (multifator) e às exportações, históricos, presets e salvamentos locais.
+- **Requisitos não funcionais:**
+  - Reuso do estado global `simulacaoState` e persistência via IndexedDB/localStorage.
+  - Compatibilidade com loaders existentes (fallback quando `/api/simulacao/padroes` falhar).
+- **Cálculos e lógica:**
+  - Aplicação das alíquotas sobre o preço de venda sem impostos (R$/kg), com acréscimo de extras e abatimento de créditos por kg.
+  - Armazenamento do total de tributos em R$/kg, R$/ton e percentual sobre o preço base.
+  - Preço final com impostos = preço sem impostos + total de tributos.
+- **Critérios de aceitação:**
+  1. Alterar qualquer campo de tributos atualiza instantaneamente cards, painel de tributos, gráficos e resumo executivo.
+  2. Exportar uma simulação inclui as alíquotas configuradas, totais de tributos e preço final com impostos.
+  3. Presets, histórico e importação/exportação preservam a configuração de tributos.
+  4. O gráfico multifator exibe a parcela de tributos quando houver incidência.
+- **Impactos:**
+  - Front-end: `web_dashboard/templates/index.html` e `web_dashboard/static/app.js`.
+  - Nenhum ajuste em backend ou banco de dados relacional.

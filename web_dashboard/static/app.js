@@ -91,6 +91,17 @@ const HELP_CONTENT = {
             'Ideal para explicar ao cliente quais fatores compõem o preço.',
             'Caso algum componente esteja desproporcional, revise os valores no formulário ou no detalhamento de custos.'
         ]
+    },
+    tributos: {
+        titulo: 'Configuração de Tributos',
+        paragrafos: [
+            'Ajuste alíquotas e encargos para calcular a carga tributária aplicada sobre o preço sem impostos.'
+        ],
+        itens: [
+            'Informe ICMS, IPI, PIS, COFINS e ISS conforme o regime vigente.',
+            'Encargos extras e créditos tributários são valores em R$/kg somados ou subtraídos do total de impostos.',
+            'Todas as alterações recalculam imediatamente o preço final com impostos e os indicadores relacionados.'
+        ]
     }
 };
 
@@ -115,6 +126,35 @@ const simulacaoState = {
         energia: 0,
         manutencao: 0,
         administracao: 0
+    },
+    tributos: {
+        configuracao: {
+            regimeTributario: 'lucro_real',
+            icms: 0.18,
+            ipi: 0,
+            pis: 0.0065,
+            cofins: 0.03,
+            iss: 0,
+            creditos: 0,
+            extras: 0
+        },
+        resultados: {
+            cargaPercentual: 0,
+            totalKg: 0,
+            totalTon: 0,
+            precoFinalKg: 0,
+            precoFinalTon: 0,
+            receitaTotal: 0,
+            valoresDetalhados: {
+                icms: 0,
+                ipi: 0,
+                pis: 0,
+                cofins: 0,
+                iss: 0,
+                extras: 0,
+                creditos: 0
+            }
+        }
     },
     resultados: {},
     historico: []
@@ -141,6 +181,183 @@ function abrirIndexedDB() {
     if (typeof indexedDB === 'undefined') {
         return Promise.reject(new Error('IndexedDB não suportado neste navegador.'));
     }
+
+    if (dbInstance) {
+        return Promise.resolve(dbInstance);
+    }
+
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open(dbConfig.nome, dbConfig.versao);
+        request.onupgradeneeded = () => {
+            const db = request.result;
+            if (!db.objectStoreNames.contains(dbConfig.store)) {
+                db.createObjectStore(dbConfig.store, { keyPath: 'id', autoIncrement: true });
+            }
+        };
+        request.onsuccess = () => {
+            dbInstance = request.result;
+            resolve(dbInstance);
+        };
+        request.onerror = () => reject(request.error);
+    });
+}
+
+function lerConfiguracaoTributos() {
+    const cfgAtual = simulacaoState.tributos?.configuracao || {};
+    const obterElemento = (id) => document.getElementById(id);
+    const parsePercentual = (id, fallback = 0, casas = 2) => {
+        const el = obterElemento(id);
+        if (!el) return fallback;
+        const numero = Number.parseFloat(String(el.value ?? '').replace(',', '.'));
+        const decimal = Number.isFinite(numero) ? numero / 100 : fallback;
+        return Number(decimal.toFixed(casas + 2));
+    };
+    const parseValor = (id, fallback = 0) => {
+        const el = obterElemento(id);
+        if (!el) return fallback;
+        const numero = Number.parseFloat(String(el.value ?? '').replace(',', '.'));
+        if (!Number.isFinite(numero)) return fallback;
+        return Number(numero.toFixed(4));
+    };
+
+    const configuracao = {
+        regimeTributario: obterElemento('selectRegimeTributario')?.value || cfgAtual.regimeTributario || 'lucro_real',
+        icms: Math.max(parsePercentual('inputICMS', cfgAtual.icms ?? 0), 0),
+        ipi: Math.max(parsePercentual('inputIPI', cfgAtual.ipi ?? 0), 0),
+        pis: Math.max(parsePercentual('inputPIS', cfgAtual.pis ?? 0, 4), 0),
+        cofins: Math.max(parsePercentual('inputCOFINS', cfgAtual.cofins ?? 0), 0),
+        iss: Math.max(parsePercentual('inputISS', cfgAtual.iss ?? 0), 0),
+        creditos: Math.max(parseValor('inputCreditos', cfgAtual.creditos ?? 0), 0),
+        extras: Math.max(parseValor('inputOutrosImpostos', cfgAtual.extras ?? 0), 0)
+    };
+
+    return configuracao;
+}
+
+function aplicarConfiguracaoTributos(configuracao = {}) {
+    const cfg = {
+        regimeTributario: 'lucro_real',
+        icms: 0.18,
+        ipi: 0,
+        pis: 0.0065,
+        cofins: 0.03,
+        iss: 0,
+        creditos: 0,
+        extras: 0,
+        ...configuracao
+    };
+
+    const definirValor = (id, valor) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.value = valor;
+        }
+    };
+
+    const percentualParaInput = (decimal, casas = 2) => (Number.isFinite(decimal) ? (decimal * 100).toFixed(casas) : (0).toFixed(casas));
+    const monetarioParaInput = (valor, casas = 4) => (Number.isFinite(valor) ? valor.toFixed(casas) : (0).toFixed(casas));
+
+    const selectRegime = document.getElementById('selectRegimeTributario');
+    if (selectRegime) {
+        selectRegime.value = cfg.regimeTributario || 'lucro_real';
+    }
+
+    definirValor('inputICMS', percentualParaInput(cfg.icms));
+    definirValor('inputIPI', percentualParaInput(cfg.ipi));
+    definirValor('inputPIS', percentualParaInput(cfg.pis, 4));
+    definirValor('inputCOFINS', percentualParaInput(cfg.cofins));
+    definirValor('inputISS', percentualParaInput(cfg.iss));
+    definirValor('inputCreditos', monetarioParaInput(cfg.creditos));
+    definirValor('inputOutrosImpostos', monetarioParaInput(cfg.extras));
+}
+
+function calcularTributosSobre(precoSemImpostos, configuracao = simulacaoState.tributos?.configuracao) {
+    const cfg = configuracao || simulacaoState.tributos.configuracao || {};
+    const base = Math.max(Number(precoSemImpostos) || 0, 0);
+
+    const icms = base * (cfg.icms ?? 0);
+    const ipi = base * (cfg.ipi ?? 0);
+    const pis = base * (cfg.pis ?? 0);
+    const cofins = base * (cfg.cofins ?? 0);
+    const iss = base * (cfg.iss ?? 0);
+    const extras = Math.max(cfg.extras ?? 0, 0);
+    const creditos = Math.max(cfg.creditos ?? 0, 0);
+
+    const totalAntesCreditos = icms + ipi + pis + cofins + iss + extras;
+    let totalKg = totalAntesCreditos - creditos;
+    if (totalKg < 0) totalKg = 0;
+
+    const precoFinalKg = base + totalKg;
+    const resultado = {
+        cargaPercentual: base > 0 ? (totalKg / base) * 100 : 0,
+        totalKg,
+        totalTon: totalKg * 1000,
+        precoFinalKg,
+        precoFinalTon: precoFinalKg * 1000,
+        valoresDetalhados: {
+            icms,
+            ipi,
+            pis,
+            cofins,
+            iss,
+            extras,
+            creditos
+        }
+    };
+
+    return resultado;
+}
+
+function atualizarResumoTributos(configuracao, resultados, quantidade = 0) {
+    const cfg = configuracao || simulacaoState.tributos.configuracao;
+    const res = resultados || simulacaoState.tributos.resultados;
+
+    const atualizarPercentual = (id, valor) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.textContent = formatarPercentual(valor || 0);
+        }
+    };
+
+    const atualizarTexto = (id, texto) => atualizarResultado(id, texto);
+
+    const formatPercent = (valor, casas = 2) => formatarNumero(valor ?? 0, casas);
+
+    atualizarPercentual('resultadoCargaTributaria', res?.cargaPercentual ?? 0);
+    atualizarPercentual('resultadoCargaTributariaCard', res?.cargaPercentual ?? 0);
+
+    atualizarTexto('resultadoTributoICMS', formatarMoeda(res?.valoresDetalhados?.icms ?? 0));
+    atualizarTexto('resultadoTributoIPI', formatarMoeda(res?.valoresDetalhados?.ipi ?? 0));
+    atualizarTexto('resultadoTributoPIS', formatarMoeda(res?.valoresDetalhados?.pis ?? 0));
+    atualizarTexto('resultadoTributoCOFINS', formatarMoeda(res?.valoresDetalhados?.cofins ?? 0));
+    atualizarTexto('resultadoTributoISS', formatarMoeda(res?.valoresDetalhados?.iss ?? 0));
+    atualizarTexto('resultadoTributoExtras', formatarMoeda(res?.valoresDetalhados?.extras ?? 0));
+    atualizarTexto('resultadoTributoCreditos', formatarMoeda(res?.valoresDetalhados?.creditos ?? 0));
+
+    atualizarTexto('resultadoTotalTributos', formatarMoeda(res?.totalKg ?? 0));
+    atualizarTexto('resultadoTotalTributosTon', formatarMoeda(res?.totalTon ?? 0));
+
+    atualizarTexto('resultadoPrecoFinalKg', formatarMoeda(res?.precoFinalKg ?? 0));
+    atualizarTexto('resultadoPrecoFinalTon', formatarMoeda(res?.precoFinalTon ?? 0));
+    atualizarTexto('resultadoPrecoFinalKgCard', formatarMoeda(res?.precoFinalKg ?? 0));
+    atualizarTexto('resultadoPrecoFinalTonCard', formatarMoeda(res?.precoFinalTon ?? 0));
+
+    const receitaComTributos = res?.precoFinalTon ? (res.precoFinalTon * quantidade) : 0;
+    atualizarTexto('resultadoReceitaTotalTributos', formatarMoeda(res?.receitaTotal ?? receitaComTributos));
+
+    const definirAliquota = (id, valor, casas = 2) => {
+        const el = document.getElementById(id);
+        if (el) {
+            el.textContent = formatPercent(valor, casas);
+        }
+    };
+
+    definirAliquota('labelAliquotaICMS', (cfg?.icms ?? 0) * 100);
+    definirAliquota('labelAliquotaIPI', (cfg?.ipi ?? 0) * 100);
+    definirAliquota('labelAliquotaPIS', (cfg?.pis ?? 0) * 100, 4);
+    definirAliquota('labelAliquotaCOFINS', (cfg?.cofins ?? 0) * 100);
+    definirAliquota('labelAliquotaISS', (cfg?.iss ?? 0) * 100);
+}
 
 function registrarAjudaSecoes() {
     if (helpPopoverRegistrado) return;
@@ -248,24 +465,6 @@ function fecharPopoverAjuda() {
     popover.removeAttribute('style');
     popover.setAttribute('aria-hidden', 'true');
     helpPopoverAtivo = null;
-}
-    if (dbInstance) {
-        return Promise.resolve(dbInstance);
-    }
-    return new Promise((resolve, reject) => {
-        const request = indexedDB.open(dbConfig.nome, dbConfig.versao);
-        request.onupgradeneeded = () => {
-            const db = request.result;
-            if (!db.objectStoreNames.contains(dbConfig.store)) {
-                db.createObjectStore(dbConfig.store, { keyPath: 'id', autoIncrement: true });
-            }
-        };
-        request.onsuccess = () => {
-            dbInstance = request.result;
-            resolve(dbInstance);
-        };
-        request.onerror = () => reject(request.error);
-    });
 }
 
 function lerPresets() {
@@ -637,7 +836,12 @@ function atualizarGraficoMultifator(parametros = null) {
         return;
     }
 
-    const { precoBaseRSkg = 0, custosOperacionais = 0, precoVendaKg = 0 } = parametros;
+    const {
+        precoBaseRSkg = 0,
+        custosOperacionais = 0,
+        precoVendaKg = 0,
+        tributosKg = 0
+    } = parametros;
     const detalhados = simulacaoState.custosDetalhados || {};
 
     const itens = [];
@@ -671,6 +875,10 @@ function atualizarGraficoMultifator(parametros = null) {
     const margemValor = precoVendaKg > 0 ? Math.max(precoVendaKg - (precoBaseRSkg + custosOperacionais), 0) : 0;
     if (margemValor > 0.0001) {
         itens.push({ label: 'Margem desejada', valor: margemValor });
+    }
+
+    if (tributosKg > 0.0001) {
+        itens.push({ label: 'Tributos', valor: tributosKg });
     }
 
     const possuiDados = itens.some(item => item.valor > 0.0001);
@@ -877,7 +1085,8 @@ function obterValoresFormulario() {
         margemMinima: obterValorInput('inputMargemMinima'),
         quantidade: obterValorInput('inputQuantidade'),
         sensibilidade: obterValorInput('inputSensibilidade'),
-        custosDetalhados: obterCustosDetalhados()
+        custosDetalhados: obterCustosDetalhados(),
+        tributos: lerConfiguracaoTributos()
     };
 }
 
@@ -902,6 +1111,14 @@ function aplicarValoresFormulario(valores) {
     campo('custoEnergia', detalhados.energia);
     campo('custoManutencao', detalhados.manutencao);
     campo('custoAdministracao', detalhados.administracao);
+
+    if (valores.tributos) {
+        simulacaoState.tributos.configuracao = {
+            ...simulacaoState.tributos.configuracao,
+            ...valores.tributos
+        };
+    }
+    aplicarConfiguracaoTributos(simulacaoState.tributos.configuracao);
 
     simulacaoState.custosDetalhados = {
         mao_obra: detalhados.mao_obra ?? 0,
@@ -1227,6 +1444,7 @@ function preencherCamposSimulacao() {
     campo('custoAdministracao', administracao?.toFixed ? administracao.toFixed(2) : administracao);
 
     atualizarModalTotal(simulacaoState.custosDetalhados);
+    aplicarConfiguracaoTributos(simulacaoState.tributos.configuracao);
     atualizarMetaSimulacao();
 }
 
@@ -1312,6 +1530,13 @@ function recalcularSimulacao() {
     const margemBrutaReal = precoVendaKg === 0 ? 0 : ((precoVendaKg - custoTotal) / precoVendaKg) * 100;
     const receitaTotal = precoVendaTon * quantidade;
 
+    // Tributos
+    const configuracaoTributos = lerConfiguracaoTributos();
+    simulacaoState.tributos.configuracao = configuracaoTributos;
+    const resultadoTributos = calcularTributosSobre(precoVendaKg, configuracaoTributos);
+    resultadoTributos.receitaTotal = resultadoTributos.precoFinalTon * quantidade;
+    simulacaoState.tributos.resultados = resultadoTributos;
+
     simulacaoState.defaults = {
         ...simulacaoState.defaults,
         lme: cotacaoLME,
@@ -1338,7 +1563,11 @@ function recalcularSimulacao() {
         margemBrutaReal,
         quantidade,
         receitaTotal,
-        sensibilidade
+        sensibilidade,
+        tributos: {
+            configuracao: configuracaoTributos,
+            resultados: resultadoTributos
+        }
     };
 
     atualizarResultado('resultadoPrecoBase', formatarMoeda(precoBaseRSkg));
@@ -1356,7 +1585,8 @@ function recalcularSimulacao() {
     atualizarGraficoMultifator({
         precoBaseRSkg,
         custosOperacionais,
-        precoVendaKg
+        precoVendaKg,
+        tributosKg: resultadoTributos.totalKg
     });
 
     const comparativo = calcularComparativoMensal({
@@ -1387,6 +1617,8 @@ function recalcularSimulacao() {
     document.getElementById('tituloSensibilidade').textContent = `Sensibilidade ±${formatarNumero(Math.abs(sensibilidade), 0)}%`;
     atualizarTabelaSensibilidade(linhasSensibilidade);
     atualizarGraficoSensibilidade(linhasSensibilidade);
+
+    atualizarResumoTributos(configuracaoTributos, resultadoTributos, quantidade);
 }
 
 function resetarSimulacao() {
@@ -1421,6 +1653,15 @@ function registrarEventosSimulacao() {
         const el = document.getElementById(id);
         if (el) {
             el.addEventListener('input', () => recalcularSimulacao());
+        }
+    });
+
+    const camposTributos = ['selectRegimeTributario', 'inputICMS', 'inputIPI', 'inputPIS', 'inputCOFINS', 'inputISS', 'inputCreditos', 'inputOutrosImpostos'];
+    camposTributos.forEach(id => {
+        const el = document.getElementById(id);
+        if (el) {
+            const evento = el.tagName === 'SELECT' ? 'change' : 'input';
+            el.addEventListener(evento, () => recalcularSimulacao());
         }
     });
 
@@ -1600,6 +1841,7 @@ async function salvarSimulacao() {
         const payload = {
             ...simulacaoState.resultados,
             custosDetalhados: simulacaoState.custosDetalhados,
+            tributos: simulacaoState.tributos,
             createdAt: new Date().toISOString()
         };
 
@@ -1627,6 +1869,10 @@ async function exportarSimulacao() {
 
     await carregarDadosPeriodo();
 
+    const { tributos = {} } = resultados;
+    const cfgTributos = tributos.configuracao || simulacaoState.tributos.configuracao;
+    const resTributos = tributos.resultados || simulacaoState.tributos.resultados;
+
     const resumoSimulacao = [
         ['Campo', 'Valor'],
         ['Cotação LME (US$/tonelada)', resultados.cotacaoLME ?? ''],
@@ -1643,6 +1889,20 @@ async function exportarSimulacao() {
         ['Quantidade (ton)', resultados.quantidade ?? ''],
         ['Receita Total (R$)', resultados.receitaTotal ?? ''],
         ['Sensibilidade (±%)', resultados.sensibilidade ?? ''],
+        ['Regime Tributário', cfgTributos?.regimeTributario ?? ''],
+        ['Alíquota ICMS (%)', (cfgTributos?.icms ?? 0) * 100],
+        ['Alíquota IPI (%)', (cfgTributos?.ipi ?? 0) * 100],
+        ['Alíquota PIS (%)', (cfgTributos?.pis ?? 0) * 100],
+        ['Alíquota COFINS (%)', (cfgTributos?.cofins ?? 0) * 100],
+        ['Alíquota ISS (%)', (cfgTributos?.iss ?? 0) * 100],
+        ['Encargos Extras (R$/kg)', cfgTributos?.extras ?? 0],
+        ['Créditos Tributários (R$/kg)', cfgTributos?.creditos ?? 0],
+        ['Carga Tributária (%)', resTributos?.cargaPercentual ?? 0],
+        ['Total Tributos (R$/kg)', resTributos?.totalKg ?? 0],
+        ['Total Tributos (R$/ton)', resTributos?.totalTon ?? 0],
+        ['Preço Final c/ impostos (R$/kg)', resTributos?.precoFinalKg ?? 0],
+        ['Preço Final c/ impostos (R$/ton)', resTributos?.precoFinalTon ?? 0],
+        ['Receita c/ impostos (R$)', resTributos?.receitaTotal ?? 0],
         ['Data da Cotação', simulacaoState.meta.dataCotacao ? formatarData(simulacaoState.meta.dataCotacao) : '--'],
         ['Atualizado em', simulacaoState.meta.atualizadoEm ? formatarDataHora(simulacaoState.meta.atualizadoEm) : '--']
     ];
@@ -1770,6 +2030,12 @@ function definirSimulacao(item) {
     });
 
     simulacaoState.custosDetalhados = item.custosDetalhados || simulacaoState.custosDetalhados;
+    if (item.tributos?.configuracao) {
+        simulacaoState.tributos.configuracao = {
+            ...simulacaoState.tributos.configuracao,
+            ...item.tributos.configuracao
+        };
+    }
     simulacaoState.defaults = {
         ...simulacaoState.defaults,
         lme: item.cotacaoLME ?? simulacaoState.defaults.lme,
