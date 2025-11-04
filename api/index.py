@@ -24,7 +24,8 @@ try:
         calcular_medias_semanais,
         calcular_medias_mensais,
         get_ptax_periodo,
-        montar_indicadores_variacao
+        montar_indicadores_variacao,
+        obter_cotacoes_atualizadas
     )
 except ImportError:
     # Se não conseguir importar, definir as funções aqui
@@ -37,6 +38,32 @@ except ImportError:
         except Exception as e:
             print(f"Erro ao buscar dados LME: {e}")
             return []
+
+    def obter_cotacoes_atualizadas():
+        dados = get_lme_data()
+        if not dados:
+            return None, None, None
+
+        def chave_data(item):
+            try:
+                return datetime.strptime(item.get("data", ""), "%Y-%m-%d")
+            except (TypeError, ValueError):
+                return datetime.min
+
+        dados_ordenados = sorted(dados, key=chave_data, reverse=True)
+        mais_recente = dados_ordenados[0]
+
+        try:
+            cotacao_lme = float(mais_recente.get("aluminio", 0))
+        except (TypeError, ValueError):
+            cotacao_lme = None
+
+        try:
+            cotacao_dolar = float(mais_recente.get("dolar", 0))
+        except (TypeError, ValueError):
+            cotacao_dolar = None
+
+        return cotacao_lme, cotacao_dolar, mais_recente.get("data")
     
     def processar_dados_mensal(dados, mes, ano, meses_anteriores=1):
         from datetime import datetime
@@ -167,16 +194,42 @@ def api_dados_mes(mes, ano):
 def api_simulacao_padroes():
     """Retorna parâmetros padrão para a simulação de preço."""
     try:
-        # Obter cotações atuais (simulando a função obter_cotacoes_atualizadas)
-        dados = get_lme_data()
-        if not dados or len(dados) == 0:
-            return jsonify({"erro": "Não foi possível obter cotações atuais"}), 500
-            
-        # Usar o último dado disponível
-        ultimo_dado = dados[0]
-        cotacao_lme = float(ultimo_dado.get('aluminio', 0))  # Assumindo que 'aluminio' é a cotação LME
-        cotacao_dolar = float(ultimo_dado.get('dolar', 5.0))  # Usando dolar do último registro
-        data_ref = ultimo_dado.get('data', datetime.now().strftime('%Y-%m-%d'))
+        cotacao_lme = cotacao_dolar = None
+        data_ref = None
+
+        try:
+            cotacao_lme, cotacao_dolar, data_ref = obter_cotacoes_atualizadas()
+        except Exception:
+            cotacao_lme = cotacao_dolar = data_ref = None
+
+        if cotacao_lme is None or cotacao_dolar is None or not data_ref:
+            dados = get_lme_data()
+            if not dados:
+                return jsonify({"erro": "Não foi possível obter cotações atuais"}), 500
+
+            def chave_data(item):
+                try:
+                    return datetime.strptime(item.get('data', ''), '%Y-%m-%d')
+                except (TypeError, ValueError):
+                    return datetime.min
+
+            dados_ordenados = sorted(dados, key=chave_data, reverse=True)
+            ultimo_dado = dados_ordenados[0]
+
+            try:
+                cotacao_lme = float(ultimo_dado.get('aluminio', 0))
+            except (TypeError, ValueError):
+                cotacao_lme = None
+
+            try:
+                cotacao_dolar = float(ultimo_dado.get('dolar', 0))
+            except (TypeError, ValueError):
+                cotacao_dolar = None
+
+            data_ref = ultimo_dado.get('data', datetime.now().strftime('%Y-%m-%d'))
+
+        if cotacao_lme is None or cotacao_dolar is None:
+            return jsonify({"erro": "Não foi possível interpretar as cotações"}), 500
         
         fator_referencia = 1.30
         preco_base_usd_kg = cotacao_lme / 1000
